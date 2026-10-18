@@ -1,0 +1,23 @@
+[package]
+name = "wlrix-power"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "wlRIX power status -- the battery as a StatusNotifierItem for wlrix-tray, low-battery warnings, and power modes."
+repository = "https://github.com/wlRIX/wlrix-power"
+publish = false
+
+[dependencies]
+# The event loop. The UPower and power-profiles watcher, the tray watcher, the menu and the
+# SIGHUP/SIGTERM pings are all sources on one loop, with a timer to let a burst of signals settle.
+# No Wayland: this program draws nothing -- `wlrix-tray` draws its icon.
+calloop = "0.13"
+# D-Bus, twice over: the system bus, where UPower and power-profiles-daemon are, and the session
+# bus, where the item is served, the tray is and the notifications go. Blocking API and no tokio,
+# as in every other wlRIX component.
+zbus = "5"
+# The config file.
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+# `O_NOFOLLOW` on the pidfile and `signal` for the handlers.
+libc = "0.2"
