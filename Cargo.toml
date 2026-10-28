@@ -1,6 +1,6 @@
 [package]
 name = "wlrix-power"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 description = "wlRIX power status -- the battery as a StatusNotifierItem for wlrix-tray, low-battery warnings, and power modes."

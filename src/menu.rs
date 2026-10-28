@@ -16,7 +16,8 @@
 //! Ids are fixed per row and per profile name, so a click that arrives after the menu changed
 //! still means what was clicked -- the same rule as `wlrix-network`'s menu.
 
-use crate::indicator::{percent, state_line};
+use crate::i18n::tr;
+use crate::indicator::{level_line, no_battery, state_line};
 use crate::upower::Snapshot;
 
 /// What choosing a row does.
@@ -97,9 +98,9 @@ const KNOWN_PROFILES: [&str; 3] = ["power-saver", "balanced", "performance"];
 /// A profile as a person reads it.
 fn profile_label(name: &str) -> String {
     match name {
-        "power-saver" => "Power Saver".to_owned(),
-        "balanced" => "Balanced".to_owned(),
-        "performance" => "Performance".to_owned(),
+        "power-saver" => tr("Power Saver", "省電力").to_owned(),
+        "balanced" => tr("Balanced", "バランス").to_owned(),
+        "performance" => tr("Performance", "パフォーマンス").to_owned(),
         other => other.to_owned(),
     }
 }
@@ -109,13 +110,10 @@ pub fn build(snapshot: Option<&Snapshot>) -> Row {
     let mut root = Row::new(0, "");
     match snapshot.and_then(|snapshot| snapshot.battery.as_ref()) {
         Some(battery) => {
-            root.children.push(Row::heading(
-                LEVEL,
-                format!("Battery {}%", percent(battery)),
-            ));
+            root.children.push(Row::heading(LEVEL, level_line(battery)));
             root.children.push(Row::heading(STATE, state_line(battery)));
         }
-        None => root.children.push(Row::heading(LEVEL, "No battery")),
+        None => root.children.push(Row::heading(LEVEL, no_battery())),
     }
     if let Some(profiles) = snapshot.and_then(|snapshot| snapshot.profiles.as_ref()) {
         root.children.push(Row::separator(PROFILES_SEPARATOR));

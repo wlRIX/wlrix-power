@@ -17,6 +17,7 @@
 //! person said `indicator = "hidden"`. Warnings do not depend on the icon: they still come.
 
 use crate::config::Indicator;
+use crate::i18n::{Language, tr};
 use crate::upower::{Battery, Snapshot, State, Warning};
 
 /// `Status`, as the StatusNotifierItem specification spells it.
@@ -50,11 +51,15 @@ pub fn duration(seconds: i64) -> Option<String> {
         return None;
     }
     let minutes = (seconds + 30) / 60;
+    let language = Language::current();
     Some(match (minutes / 60, minutes % 60) {
-        (0, 0) => "less than a minute".to_owned(),
-        (0, minutes) => format!("{minutes} min"),
-        (hours, 0) => format!("{hours} h"),
-        (hours, minutes) => format!("{hours} h {minutes} min"),
+        (0, 0) => tr("less than a minute", "1 分未満").to_owned(),
+        (0, minutes) => language.pick(format!("{minutes} min"), format!("{minutes} 分")),
+        (hours, 0) => language.pick(format!("{hours} h"), format!("{hours} 時間")),
+        (hours, minutes) => language.pick(
+            format!("{hours} h {minutes} min"),
+            format!("{hours} 時間 {minutes} 分"),
+        ),
     })
 }
 
@@ -65,21 +70,40 @@ pub fn percent(battery: &Battery) -> u32 {
 
 /// One line saying what the battery is doing.
 pub fn state_line(battery: &Battery) -> String {
+    let language = Language::current();
     match battery.state {
         State::Discharging | State::PendingDischarge => match duration(battery.time_to_empty) {
-            Some(left) => format!("{left} remaining"),
-            None => "On battery".to_owned(),
+            Some(left) => language.pick(format!("{left} remaining"), format!("残り {left}")),
+            None => tr("On battery", "バッテリー駆動中").to_owned(),
         },
         State::Charging => match duration(battery.time_to_full) {
-            Some(left) => format!("Charging, full in {left}"),
-            None => "Charging".to_owned(),
+            Some(left) => language.pick(
+                format!("Charging, full in {left}"),
+                format!("充電中、満充電まで {left}"),
+            ),
+            None => tr("Charging", "充電中").to_owned(),
         },
-        State::FullyCharged => "Fully charged".to_owned(),
+        State::FullyCharged => tr("Fully charged", "充電完了").to_owned(),
         // A charge limit, or a battery too warm to charge: plugged in, holding where it is.
-        State::PendingCharge => "Plugged in, not charging".to_owned(),
-        State::Empty => "Empty".to_owned(),
-        State::Unknown => "Plugged in".to_owned(),
+        State::PendingCharge => {
+            tr("Plugged in, not charging", "電源に接続中、充電していません").to_owned()
+        }
+        State::Empty => tr("Empty", "空").to_owned(),
+        State::Unknown => tr("Plugged in", "電源に接続中").to_owned(),
     }
+}
+
+/// The battery's level as the title of the tooltip and the menu: "Battery 73%".
+pub fn level_line(battery: &Battery) -> String {
+    Language::current().pick(
+        format!("Battery {}%", percent(battery)),
+        format!("バッテリー {}%", percent(battery)),
+    )
+}
+
+/// What the tooltip and the menu say on a machine with no battery.
+pub fn no_battery() -> &'static str {
+    tr("No battery", "バッテリーなし")
 }
 
 /// The icon for a battery when UPower named none: tens of percent, charging or not.
@@ -101,7 +125,7 @@ pub fn view(snapshot: Option<&Snapshot>, setting: Indicator) -> View {
         return View {
             status: Status::Passive,
             icon: "battery-missing-symbolic".to_owned(),
-            title: "No battery".to_owned(),
+            title: no_battery().to_owned(),
             body: String::new(),
         };
     };
@@ -115,7 +139,7 @@ pub fn view(snapshot: Option<&Snapshot>, setting: Indicator) -> View {
         } else {
             battery.icon.clone()
         },
-        title: format!("Battery {}%", percent(battery)),
+        title: level_line(battery),
         body: state_line(battery),
     }
 }
@@ -161,26 +185,38 @@ pub fn decide(warned: Warning, battery: Option<&Battery>) -> Decision {
     if battery.warning <= warned {
         return Decision::Nothing;
     }
+    let language = Language::current();
     let left = duration(battery.time_to_empty)
-        .map(|left| format!(", about {left} left"))
+        .map(|left| language.pick(format!(", about {left} left"), format!("、あと約 {left}")))
         .unwrap_or_default();
     let level = percent(battery);
     let alert = match battery.warning {
         Warning::None => return Decision::Nothing,
         Warning::Low => Alert {
-            summary: "Battery low".to_owned(),
-            body: format!("{level}% remaining{left}. Plug in soon."),
+            summary: tr("Battery low", "バッテリー残量が少なくなっています").to_owned(),
+            body: language.pick(
+                format!("{level}% remaining{left}. Plug in soon."),
+                format!("残り {level}%{left}。早めに電源に接続してください。"),
+            ),
             critical: false,
         },
         Warning::Critical => Alert {
-            summary: "Battery critically low".to_owned(),
-            body: format!("{level}% remaining{left}. Plug in now, or save your work."),
+            summary: tr("Battery critically low", "バッテリー残量がわずかです").to_owned(),
+            body: language.pick(
+                format!("{level}% remaining{left}. Plug in now, or save your work."),
+                format!(
+                    "残り {level}%{left}。すぐに電源に接続するか、作業内容を保存してください。"
+                ),
+            ),
             critical: true,
         },
         Warning::Action => Alert {
-            summary: "Battery almost empty".to_owned(),
-            body: "The computer is about to suspend or shut down to save what it can. Plug in now."
-                .to_owned(),
+            summary: tr("Battery almost empty", "バッテリーがまもなく切れます").to_owned(),
+            body: tr(
+                "The computer is about to suspend or shut down to save what it can. Plug in now.",
+                "保存できるものを守るため、まもなくサスペンドまたはシャットダウンします。すぐに電源に接続してください。",
+            )
+            .to_owned(),
             critical: true,
         },
     };

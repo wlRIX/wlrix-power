@@ -33,6 +33,7 @@ use calloop::timer::{TimeoutAction, Timer};
 
 use crate::config::Config;
 use crate::dbusmenu::MenuEvent;
+use crate::i18n::tr;
 use crate::indicator::{self, Alert, Decision, Status, View};
 use crate::menu::{self, Action};
 use crate::sni::{self, Published};
@@ -139,7 +140,7 @@ impl Daemon {
             Some(NOTIFICATIONS),
             "Notify",
             &(
-                "Battery",
+                tr("Battery", "バッテリー"),
                 replaces.unwrap_or(0),
                 icon,
                 alert.summary.as_str(),
@@ -179,7 +180,13 @@ impl Daemon {
                 // What follows arrives as a PropertiesChanged like any other change.
                 if let Err(err) = upower::set_profile(&self.system, profile) {
                     eprintln!("wlrix-power: {action:?} failed: {err}");
-                    self.post("The power mode was not changed", &refusal(&err));
+                    self.post(
+                        tr(
+                            "The power mode was not changed",
+                            "電源モードを変更できませんでした",
+                        ),
+                        &refusal(&err),
+                    );
                 }
             }
         }
